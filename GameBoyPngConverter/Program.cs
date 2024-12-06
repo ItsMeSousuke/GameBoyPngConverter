@@ -2,11 +2,11 @@
 using System.CommandLine;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using SkiaSharp;
 
 namespace GameBoyPngConverter
 {
@@ -86,9 +86,9 @@ namespace GameBoyPngConverter
                 return;
             }
 
-            using (var pngStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            using (var image = new Bitmap(pngStream))
+            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
             {
+                var image = SKBitmap.Decode(stream);
                 var fileName = MakeSafeFileName(Path.GetFileNameWithoutExtension(args[0]));
 
 
@@ -169,7 +169,7 @@ namespace GameBoyPngConverter
             }
         }
 
-        private static void GenerateSprites(Bitmap image, List<Color> colorPalette, List<Sprite> uniqueSprites, List<Sprite> dedupedSprites)
+        private static void GenerateSprites(SKBitmap image, List<SKColor> colorPalette, List<Sprite> uniqueSprites, List<Sprite> dedupedSprites)
         {
             // loop each 8x8 sprite converting colors to hex values
             var widthInSprites = image.Width / 8;
@@ -252,7 +252,7 @@ namespace GameBoyPngConverter
             return template;
         }
 
-        private static string GenerateMapFile(List<Sprite> uniqueSprites, List<Sprite> dedupedSprites, string fileName, Bitmap image)
+        private static string GenerateMapFile(List<Sprite> uniqueSprites, List<Sprite> dedupedSprites, string fileName, SKBitmap image)
         {
             var hex = new StringBuilder();
             var i = 0;
@@ -331,9 +331,9 @@ namespace GameBoyPngConverter
             return bytes[0];
         }
 
-        private static List<Color> ExtractColorPalette(Bitmap image)
+        private static List<SKColor> ExtractColorPalette(SKBitmap image)
         {
-            List<Color> colors = new List<Color>();
+            List<SKColor> colors = new List<SKColor>();
 
             for (var x = 0; x < image.Width; x++)
             {
@@ -354,18 +354,33 @@ namespace GameBoyPngConverter
             return colors;
         }
 
-        private static void OrderPaletteByBrigtness(List<Color> palette)
+        private static void OrderPaletteByBrigtness(List<SKColor> palette)
         {
             palette.Sort((a, b) => a.GetBrightness().CompareTo(b.GetBrightness()));
             if (bwMode && palette.Count == 2)
             {
-                palette.Insert(1, Color.Transparent);
-                palette.Insert(2, Color.Transparent);
+                palette.Insert(1, SKColors.Transparent);
+                palette.Insert(2, SKColors.Transparent);
             }
             else if (bwMode && palette.Count == 3)
             {
-                palette.Insert(2, Color.Transparent);
+                palette.Insert(2, SKColors.Transparent);
             }
         }
+    }
+}
+
+public static class ColorExtensions
+{
+    public static float GetBrightness(this SKColor color)
+    {
+        float r = color.Red / 255f;
+        float g = color.Green / 255f;
+        float b = color.Blue / 255f;
+
+        float max = Math.Max(r, Math.Max(g, b));
+        float min = Math.Min(r, Math.Min(g, b));
+
+        return (max + min) / 2;
     }
 }
